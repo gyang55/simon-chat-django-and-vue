@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ChatViewSet
+from .views import ChatViewSet, register
 
 router = DefaultRouter()
 router.register(r"chats", ChatViewSet, basename="chat")
@@ -8,4 +8,5 @@ router.register(r"chats", ChatViewSet, basename="chat")
 urlpatterns = [
     # router LAST
     path("", include(router.urls)),
+    path("register/", register),
 ]
