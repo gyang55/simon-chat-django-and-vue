@@ -1,15 +1,61 @@
-# Python virtual environment
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
 .venv/
 venv/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
+env/
 
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # Django
 db.sqlite3
+*.log
+local_settings.py
+
+# =========================
+# Node / Vue / Vite
+# =========================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Vite
+.vite/
+
+# =========================
+# TypeScript / IDE
+# =========================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+.idea/
+*.swp
+
+# =========================
+# Build / Coverage
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# Misc
+# =========================
+tmp/
+.cache/
