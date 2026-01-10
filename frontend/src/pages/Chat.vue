@@ -1,70 +1,96 @@
 <template>
-  <div style="display: flex; height: 100vh; font-family: system-ui">
-    <aside style="width: 280px; border-right: 1px solid #ddd; padding: 12px">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        "
-      >
-        <h3 style="margin: 0">Chats</h3>
-        <button @click="createChat">+ New</button>
-      </div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <!-- top -->
+      <div class="sidebar-top">
+        <div class="sidebar-header">
+          <Aperture class="brand-icon" />
+          <button class="new-chat-btn" @click="createChat">
+            <span class="plus">＋</span>
+            <span>New chat</span>
+          </button>
+        </div>
 
-      <div style="margin-top: 12px">
-        <div
-          v-for="c in chats"
-          :key="c.id"
-          @click="selectChat(c)"
-          :style="{
-            padding: '10px',
-            cursor: 'pointer',
-            borderRadius: '8px',
-            background: selectedChat?.id === c.id ? '#f0f0f0' : 'transparent',
-          }"
-        >
-          <div style="font-weight: 600">{{ c.title || "Untitled" }}</div>
-          <div style="font-size: 12px; color: #666">#{{ c.id }}</div>
+        <!-- chat list -->
+        <div class="chat-list">
+          <div
+            v-for="c in chats"
+            :key="c.id"
+            class="chat-item"
+            :class="{ active: selectedChat?.id === c.id }"
+            @click="selectChat(c)"
+          >
+            <div class="chat-row">
+              <div class="chat-text">
+                <div class="chat-title">{{ c.title || "Untitled" }}</div>
+                <div class="chat-meta">#{{ c.id }}</div>
+              </div>
+
+              <button
+                class="icon-btn"
+                type="button"
+                title="Delete chat"
+                @click.stop="deleteChat(c)"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      <hr />
-      <button @click="logout" style="width: 100%">Logout</button>
+      <!-- bottom -->
+      <div class="sidebar-bottom">
+        <button class="logout-btn" @click="logout">Logout</button>
+      </div>
     </aside>
 
-    <main style="flex: 1; padding: 16px">
-      <h2 v-if="!selectedChat">Select a chat</h2>
+    <main class="main">
+      <div class="main-header">
+        <div class="title">
+          <div class="title-h1">
+            {{ selectedChat ? `Chat #${selectedChat.id}` : "Select a chat" }}
+          </div>
+        </div>
+      </div>
 
-      <div v-else>
-        <h2 style="margin-top: 0">Chat #{{ selectedChat.id }}</h2>
-
-        <div
-          style="
-            margin: 12px 0;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 12px;
-            height: 60vh;
-            overflow: auto;
-          "
-        >
-          <div v-for="m in messages" :key="m.id" style="margin: 10px 0">
-            <b>{{ m.role }}:</b> <span>{{ m.content }}</span>
+      <div class="chat-panel" v-if="selectedChat">
+        <div class="messages" ref="msgWrap">
+          <div v-for="m in messages" :key="m.id" class="msg" :class="m.role">
+            <div class="bubble">
+              <div class="role">{{ m.role }}</div>
+              <div class="content">{{ m.content }}</div>
+            </div>
           </div>
         </div>
 
-        <form @submit.prevent="sendMessage" style="display: flex; gap: 8px">
-          <input
-            v-model="input"
-            style="flex: 1; padding: 10px"
-            placeholder="Type..."
-          />
-          <button :disabled="!input.trim()">Send</button>
+        <form class="composer" @submit.prevent="sendMessage">
+          <div class="composer-inner">
+            <input
+              v-model="input"
+              class="composer-input"
+              placeholder="Message Simon Chat..."
+            />
+            <button class="btn btn-primary" :disabled="!input.trim()">
+              Send
+            </button>
+          </div>
+          <div class="composer-hint">
+            Enter to send · Shift+Enter for newline
+          </div>
         </form>
+
+        <p v-if="error" class="error">{{ error }}</p>
       </div>
 
-      <p v-if="error" style="color: red">{{ error }}</p>
+      <div v-else class="empty-state">
+        <div class="empty-card">
+          <div class="empty-title">Welcome 👋</div>
+          <div class="empty-sub">
+            Create a new chat or select one from the left.
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -72,7 +98,12 @@
 <script>
 import { api } from "../lib/api.js";
 import { streamChat } from "../lib/stream.js";
+import { Aperture } from "lucide-vue-next";
+
 export default {
+  components: {
+    Aperture,
+  },
   data() {
     return {
       chats: [],
@@ -165,6 +196,22 @@ export default {
         });
       } catch (e) {
         this.error = e.message || "Streaming failed";
+      }
+    },
+    async deleteChat(chat) {
+      if (!confirm(`Delete chat "${chat.title || "Untitled"}"?`)) return;
+
+      this.error = "";
+      try {
+        await api.delete(`/api/chats/${chat.id}/`);
+        this.chats = this.chats.filter((c) => c.id !== chat.id);
+
+        if (this.selectedChat?.id === chat.id) {
+          this.selectedChat = null;
+          this.messages = [];
+        }
+      } catch (e) {
+        this.error = "Failed to delete chat";
       }
     },
 
