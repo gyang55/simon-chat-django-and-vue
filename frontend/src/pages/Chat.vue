@@ -127,36 +127,36 @@ export default {
       this.input = "";
       this.error = "";
 
-      // 1) Add user message locally
-      const userMsg = {
+      // show user message immediately
+      this.messages.push({
         id: Date.now(),
         role: "user",
         content: text,
-      };
-      this.messages.push(userMsg);
+      });
 
-      // 2) Create empty assistant message (for streaming)
-      const assistantMsg = {
+      // create an assistant placeholder to append deltas
+      const assistant = {
         id: Date.now() + 1,
         role: "assistant",
         content: "",
       };
-      this.messages.push(assistantMsg);
+      this.messages.push(assistant);
+
+      const token = localStorage.getItem("access_token");
+      const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
       try {
         await streamChat({
-          url: `${import.meta.env.VITE_API_BASE}/api/chats/${
-            this.selectedChat.id
-          }/stream/`,
-          token: localStorage.getItem("access_token"),
+          url: `${base}/api/chats/${this.selectedChat.id}/stream/`,
+          token,
           body: { content: text },
 
           onDelta: (delta) => {
-            assistantMsg.content += delta;
+            assistant.content += delta;
           },
 
           onDone: async () => {
-            // optional: reload messages from server to sync IDs
+            // reload from server so message IDs match DB
             const res = await api.get(
               `/api/chats/${this.selectedChat.id}/messages/`
             );
@@ -167,6 +167,7 @@ export default {
         this.error = e.message || "Streaming failed";
       }
     },
+
     logout() {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");

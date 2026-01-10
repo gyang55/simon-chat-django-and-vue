@@ -1,24 +1,17 @@
-export async function streamChat({
-  url,
-  token,
-  body,
-  onDelta,
-  onDone,
-  onError,
-}) {
+export async function streamChat({ url, token, body, onDelta, onDone, onError }) {
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "Accept": "text/event-stream",
+      Accept: "text/event-stream",
     },
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || "Streaming request failed");
+    throw new Error(text || `HTTP ${res.status}`);
   }
 
   const reader = res.body.getReader();
@@ -32,30 +25,25 @@ export async function streamChat({
 
     buffer += decoder.decode(value, { stream: true });
 
-    // SSE events end with \n\n
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() || "";
+    // SSE frames end with blank line
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() || "";
 
-    for (const part of parts) {
-      if (!part.startsWith("data:")) continue;
+    for (const frame of frames) {
+      const line = frame.trim();
+      if (!line.startsWith("data:")) continue;
 
-      const json = part.replace("data:", "").trim();
-      if (!json) continue;
+      const jsonStr = line.slice(5).trim();
+      if (!jsonStr) continue;
 
-      const event = JSON.parse(json);
+      const evt = JSON.parse(jsonStr);
 
-      if (event.type === "delta") {
-        onDelta?.(event.delta);
-      }
-
-      if (event.type === "done") {
+      if (evt.type === "delta") onDelta?.(evt.delta);
+      if (evt.type === "done") {
         onDone?.();
         return;
       }
-
-      if (event.type === "error") {
-        throw new Error(event.message);
-      }
+      if (evt.type === "error") throw new Error(evt.message || "stream error");
     }
   }
 }
