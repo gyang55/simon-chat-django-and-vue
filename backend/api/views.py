@@ -5,10 +5,10 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-
+from django.views.decorators.csrf import csrf_exempt
 from google.genai import Client
 from google.genai import types
-
+from django.views.decorators.http import require_POST
 from .models import Chat, Message
 from .serializers import ChatSerializer, MessageSerializer
 
@@ -99,3 +99,27 @@ class ChatViewSet(viewsets.ModelViewSet):
         resp["Cache-Control"] = "no-cache"
         resp["X-Accel-Buffering"] = "no"
         return resp
+    
+    
+@csrf_exempt
+@require_POST
+def chat_stream(request, chat_id):
+    payload = json.loads(request.body.decode("utf-8") or "{}")
+    user_text = payload.get("content", "")
+    client = Client()
+    def gen():
+        # Stream Gemini response in chunks :contentReference[oaicite:3]{index=3}
+        for chunk in client.models.generate_content_stream(
+            model="gemini-2.5-flash",
+            contents=user_text,
+        ):
+            if getattr(chunk, "text", None):
+                yield f"data: {chunk.text}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+    resp = StreamingHttpResponse(gen(), content_type="text/event-stream")
+    resp["Cache-Control"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
+    return resp
+

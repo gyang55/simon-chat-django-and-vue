@@ -1,49 +1,53 @@
-export async function streamChat({ url, token, body, onDelta, onDone, onError }) {
+export async function streamChat({ url, token, body, onDelta, onDone }) {
   const res = await fetch(url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: token ? `Bearer ${token}` : "",
       "Content-Type": "application/json",
       Accept: "text/event-stream",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body ?? {}),
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `HTTP ${res.status}`);
   }
+
+  if (!res.body) throw new Error("No response body (streaming not supported)");
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder("utf-8");
 
-  let buffer = "";
+  let buf = "";
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
+    buf += decoder.decode(value, { stream: true });
 
-    // SSE frames end with blank line
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() || "";
+    // SSE events separated by blank line
+    const events = buf.split("\n\n");
+    buf = events.pop() || "";
 
-    for (const frame of frames) {
-      const line = frame.trim();
-      if (!line.startsWith("data:")) continue;
+    for (const evt of events) {
+      // handle multi-line SSE event; we only care about data:
+      const lines = evt.split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
 
-      const jsonStr = line.slice(5).trim();
-      if (!jsonStr) continue;
+        const data = line.slice(5).trimStart(); // remove "data:" and one space if present
 
-      const evt = JSON.parse(jsonStr);
+        if (data === "[DONE]") {
+          onDone?.();
+          return;
+        }
 
-      if (evt.type === "delta") onDelta?.(evt.delta);
-      if (evt.type === "done") {
-        onDone?.();
-        return;
+        onDelta?.(data);
       }
-      if (evt.type === "error") throw new Error(evt.message || "stream error");
     }
   }
+
+  onDone?.();
 }

@@ -127,20 +127,21 @@ export default {
       this.input = "";
       this.error = "";
 
-      // show user message immediately
+      // 1) Add user message locally
       this.messages.push({
         id: Date.now(),
         role: "user",
         content: text,
       });
 
-      // create an assistant placeholder to append deltas
-      const assistant = {
+      // 2) Add ONE assistant placeholder
+      this.messages.push({
         id: Date.now() + 1,
         role: "assistant",
         content: "",
-      };
-      this.messages.push(assistant);
+      });
+
+      const idx = this.messages.length - 1;
 
       const token = localStorage.getItem("access_token");
       const base = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
@@ -152,15 +153,14 @@ export default {
           body: { content: text },
 
           onDelta: (delta) => {
-            assistant.content += delta;
+            this.messages[idx].content += delta;
           },
 
           onDone: async () => {
-            // reload from server so message IDs match DB
-            const res = await api.get(
-              `/api/chats/${this.selectedChat.id}/messages/`
-            );
-            this.messages = res.data;
+            // OPTIONAL: only reload if backend already saved the messages
+            // otherwise it will "erase" your local ones
+            // const res = await api.get(`/api/chats/${this.selectedChat.id}/messages/`);
+            // this.messages = res.data;
           },
         });
       } catch (e) {
